@@ -31,7 +31,7 @@ func NewApp() *App {
 	return &App{
 		Application: tview.NewApplication(),
 		docker:      cli,
-		page:        NewImage(cli),
+		page:        NewContainer(cli),
 	}
 }
 
