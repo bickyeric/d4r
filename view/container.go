@@ -33,19 +33,18 @@ func (c *Container) init() {
 
 	c.content = containers
 
-	c.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Container", len(c.content)))
-
-	for i, name := range []string{"CONTAINER ID", "IMAGE", "COMMAND", "CREATED", "PORTS", "NAMES"} {
+	for i, name := range []string{"CONTAINER ID", "NAMES", "IMAGE", "COMMAND", "CREATED", "PORTS"} {
 		c.SetCell(0, i, tview.NewTableCell(name).SetSelectable(false))
 	}
 
 	for index, container := range c.content {
 		c.SetCell(index+1, 0, tview.NewTableCell(container.ID[7:19]))
-		c.SetCell(index+1, 1, tview.NewTableCell(container.Image))
-		c.SetCell(index+1, 2, tview.NewTableCell(container.Command))
-		c.SetCell(index+1, 3, tview.NewTableCell(fmt.Sprint(time.Unix(container.Created, 0))))
-		c.SetCell(index+1, 4, tview.NewTableCell(fmt.Sprint(container.Ports)))
-		c.SetCell(index+1, 5, tview.NewTableCell(fmt.Sprint(container.Names[0][1:])))
+		c.SetCell(index+1, 1, tview.NewTableCell(fmt.Sprint(container.Names[0][1:])))
+		c.SetCell(index+1, 2, tview.NewTableCell(container.Image))
+		c.SetCell(index+1, 3, tview.NewTableCell(container.Command))
+		c.SetCell(index+1, 4, tview.NewTableCell(fmt.Sprint(time.Unix(container.Created, 0))))
+		c.SetCell(index+1, 5, tview.NewTableCell(fmt.Sprint(container.Ports)))
 	}
 	c.SetSelectable(true, false)
+	c.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Container", c.GetRowCount()))
 }

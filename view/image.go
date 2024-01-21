@@ -34,8 +34,6 @@ func (i *Image) init() {
 
 	i.content = summaries
 
-	i.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Image", len(i.content)))
-
 	for index, name := range []string{"REPOSITORY", "TAG", "IMAGE ID", "CREATED", "SIZE"} {
 		i.SetCell(0, index, tview.NewTableCell(name).SetSelectable(false))
 	}
@@ -49,4 +47,5 @@ func (i *Image) init() {
 		i.SetCell(index+1, 4, tview.NewTableCell(fmt.Sprint(img.Size)))
 	}
 	i.SetSelectable(true, false)
+	i.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Image", i.GetRowCount()))
 }
