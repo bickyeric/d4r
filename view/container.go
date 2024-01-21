@@ -11,38 +11,41 @@ import (
 )
 
 type Container struct {
+	*tview.Table
 	client  *client.Client
 	content []types.Container
 }
 
 func NewContainer(cli *client.Client) *Container {
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
+	return &Container{
+		Table:  tview.NewTable(),
+		client: cli,
+	}
+}
+
+func (c *Container) init() {
+	containers, err := c.client.ContainerList(context.Background(), types.ContainerListOptions{
 		All: true,
 	})
 	if err != nil {
 		panic(err)
 	}
-	return &Container{
-		client:  cli,
-		content: containers,
+
+	c.content = containers
+
+	c.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Container", len(c.content)))
+
+	for i, name := range []string{"CONTAINER ID", "IMAGE", "COMMAND", "CREATED", "PORTS", "NAMES"} {
+		c.SetCell(0, i, tview.NewTableCell(name).SetSelectable(false))
 	}
-}
 
-func (c *Container) Title() (name string, count int) {
-	return "Container", len(c.content)
-}
-
-func (c *Container) Headers() []string {
-	return []string{"CONTAINER ID", "IMAGE", "COMMAND", "CREATED", "PORTS", "NAMES"}
-}
-
-func (c *Container) SetTable(t *tview.Table) {
 	for index, container := range c.content {
-		t.SetCell(index+1, 0, tview.NewTableCell(container.ID[7:19]))
-		t.SetCell(index+1, 1, tview.NewTableCell(container.Image))
-		t.SetCell(index+1, 2, tview.NewTableCell(container.Command))
-		t.SetCell(index+1, 3, tview.NewTableCell(fmt.Sprint(time.Unix(container.Created, 0))))
-		t.SetCell(index+1, 4, tview.NewTableCell(fmt.Sprint(container.Ports)))
-		t.SetCell(index+1, 5, tview.NewTableCell(fmt.Sprint(container.Names[0][1:])))
+		c.SetCell(index+1, 0, tview.NewTableCell(container.ID[7:19]))
+		c.SetCell(index+1, 1, tview.NewTableCell(container.Image))
+		c.SetCell(index+1, 2, tview.NewTableCell(container.Command))
+		c.SetCell(index+1, 3, tview.NewTableCell(fmt.Sprint(time.Unix(container.Created, 0))))
+		c.SetCell(index+1, 4, tview.NewTableCell(fmt.Sprint(container.Ports)))
+		c.SetCell(index+1, 5, tview.NewTableCell(fmt.Sprint(container.Names[0][1:])))
 	}
+	c.SetSelectable(true, false)
 }

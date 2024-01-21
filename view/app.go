@@ -2,7 +2,6 @@ package view
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/docker/docker/client"
@@ -19,7 +18,12 @@ type Page interface {
 type App struct {
 	*tview.Application
 	docker *client.Client
-	page   Page
+	pages  *tview.Pages
+
+	logger *Debugger
+	prompt *Prompt
+
+	main *tview.Flex
 }
 
 func NewApp() *App {
@@ -28,52 +32,75 @@ func NewApp() *App {
 		panic(err)
 	}
 
-	return &App{
+	app := &App{
 		Application: tview.NewApplication(),
 		docker:      cli,
-		page:        NewContainer(cli),
+		pages:       tview.NewPages(),
+		logger:      NewDebugger(),
+	}
+
+	app.init()
+
+	return app
+}
+
+func (a *App) init() {
+	content := NewContainer(a.docker)
+	content.init()
+
+	a.pages.AddPage("Container", content, true, true)
+
+	a.prompt = NewPrompt(a)
+	a.prompt.init()
+
+	a.main = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(tview.NewBox().SetBorder(true).SetTitle("Header"), 10, 1, false).
+		AddItem(a.prompt, 0, 0, false).
+		AddItem(a.pages, 0, 1, false).
+		AddItem(a.logger, 10, 1, false)
+
+	a.main.SetFocusFunc(func() {
+		a.main.SetInputCapture(a.mainFunc)
+		a.Application.SetFocus(a.pages)
+	})
+
+	a.Application.SetRoot(a.main, true)
+}
+
+func (a *App) mainFunc(event *tcell.EventKey) *tcell.EventKey {
+	if event.Rune() == ':' {
+		a.Application.SetFocus(a.prompt)
+		a.main.SetInputCapture(nil)
+	}
+
+	a.logger.Println("from flex", event.Name())
+	return event
+}
+
+func (a *App) execCommand(cmd string) {
+	// TODO
+	var primitive tview.Primitive
+
+	if cmd == "image" {
+		img := NewImage(a.docker)
+		img.init()
+		primitive = img
+		a.pages.AddPage("Image", primitive, true, true)
+	} else if cmd == "ps" || cmd == "container" {
+		ps := NewContainer(a.docker)
+		ps.init()
+		primitive = ps
+		a.pages.AddPage("Container", primitive, true, true)
+	} else {
+		panic("apanih")
 	}
 }
 
+func (a *App) Logger() *log.Logger {
+	return a.logger.Logger
+}
+
 func (a *App) Run(ctx context.Context) error {
-	table := tview.NewTable()
-
-	name, count := a.page.Title()
-	table.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", name, count))
-
-	for i, name := range a.page.Headers() {
-		table.SetCell(0, i, tview.NewTableCell(name).SetSelectable(false))
-	}
-
-	a.page.SetTable(table)
-	table.SetSelectable(true, false)
-
-	footer := tview.NewTextView().ScrollToEnd()
-
-	l := log.Default()
-	l.SetOutput(footer)
-
-	table.Select(0, 0).SetFixed(1, 1).SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEscape {
-			a.Stop()
-		}
-	})
-
-	newPrimitive := func(text string) tview.Primitive {
-		return tview.NewTextView().
-			SetTextAlign(tview.AlignCenter).
-			SetText(text)
-	}
-
-	grid := tview.NewGrid().
-		SetRows(3, 0, 30).
-		SetBorders(true).
-		AddItem(newPrimitive("Header"), 0, 0, 1, 3, 0, 0, false).
-		AddItem(footer, 2, 0, 1, 3, 0, 0, false)
-
-	// Layout for screens wider than 100 cells.
-	grid.AddItem(table, 1, 0, 1, 3, 0, 0, false)
-	a.Application.SetRoot(grid, true).SetFocus(table)
 	return a.Application.Run()
 }
 
