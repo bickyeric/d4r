@@ -2,6 +2,7 @@ package view
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/docker/docker/client"
@@ -24,6 +25,8 @@ type App struct {
 	prompt *Prompt
 
 	main *tview.Flex
+
+	keybordHandlers map[string]func(*tcell.EventKey) *tcell.EventKey
 }
 
 func NewApp() *App {
@@ -33,10 +36,11 @@ func NewApp() *App {
 	}
 
 	app := &App{
-		Application: tview.NewApplication(),
-		docker:      cli,
-		pages:       tview.NewPages(),
-		logger:      NewDebugger(),
+		Application:     tview.NewApplication(),
+		docker:          cli,
+		pages:           tview.NewPages(),
+		logger:          NewDebugger(),
+		keybordHandlers: make(map[string]func(*tcell.EventKey) *tcell.EventKey),
 	}
 
 	app.init()
@@ -45,11 +49,6 @@ func NewApp() *App {
 }
 
 func (a *App) init() {
-	content := NewContainer(a.docker)
-	content.init()
-
-	a.pages.AddPage("Container", content, true, true)
-
 	a.prompt = NewPrompt(a)
 	a.prompt.init()
 
@@ -60,20 +59,59 @@ func (a *App) init() {
 		AddItem(a.logger, 10, 1, false)
 
 	a.main.SetFocusFunc(func() {
-		a.main.SetInputCapture(a.mainFunc)
+		a.logger.Println(a.pages.GetPageCount())
+		a.resetKeys()
+		if a.pages.GetPageCount() < 1 {
+			content := NewContainer(a.docker)
+			content.init()
+			content.bindKeys()
+			a.pages.AddPage("Container", content, true, true)
+		}
+		a.main.SetInputCapture(a.keyboardHandler)
 		a.Application.SetFocus(a.pages)
 	})
 
 	a.Application.SetRoot(a.main, true)
 }
 
-func (a *App) mainFunc(event *tcell.EventKey) *tcell.EventKey {
-	if event.Rune() == ':' {
-		a.Application.SetFocus(a.prompt)
-		a.main.SetInputCapture(nil)
+func (a *App) bindKeys() {
+	a.keybordHandlers[":"] = a.activatePrompt
+}
+
+func (a *App) clearKeys() {
+	for k := range a.keybordHandlers {
+		delete(a.keybordHandlers, k)
+	}
+}
+
+func (a *App) resetKeys() {
+	a.clearKeys()
+	a.bindKeys()
+}
+
+func (a *App) activatePrompt(_ *tcell.EventKey) *tcell.EventKey {
+	a.main.ResizeItem(a.prompt, 3, 1)
+	a.Application.SetFocus(a.prompt)
+	return nil
+}
+
+func (a *App) deactivatePrompt(_ *tcell.EventKey) *tcell.EventKey {
+	a.main.ResizeItem(a.prompt, 0, 0)
+	a.SetFocus(a.main)
+	return nil
+}
+
+func (a *App) keyboardHandler(event *tcell.EventKey) *tcell.EventKey {
+	a.logger.Println("from flex", event.Name())
+
+	if fun, ok := a.keybordHandlers[string(event.Rune())]; ok {
+		return fun(event)
 	}
 
-	a.logger.Println("from flex", event.Name())
+	if fun, ok := a.keybordHandlers[event.Name()]; ok {
+		return fun(event)
+	}
+
 	return event
 }
 
@@ -92,7 +130,9 @@ func (a *App) execCommand(cmd string) {
 		primitive = ps
 		a.pages.AddPage("Container", primitive, true, true)
 	} else {
-		panic("apanih")
+		modal := tview.NewModal()
+		modal.SetText(fmt.Sprintf("command %s tidak ditemukan", cmd))
+		a.pages.AddPage("Error", modal, true, true)
 	}
 }
 

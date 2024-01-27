@@ -25,36 +25,32 @@ func (p *Prompt) init() {
 }
 
 func (p *Prompt) start() {
-	p.TextArea.SetText("", false)
-	p.app.main.ResizeItem(p, 3, 1)
-	p.SetInputCapture(p.promptFunc)
+	p.TextArea.SetText(":", true)
+	p.bindKeys()
 }
 
-func (p *Prompt) promptFunc(event *tcell.EventKey) *tcell.EventKey {
-	text := p.GetText()
+func (p *Prompt) bindKeys() {
+	p.app.clearKeys()
 
-	if event.Key() == tcell.KeyBackspace2 && text == ":" {
-		p.backToMain()
-	}
-	if event.Key() == tcell.KeyEsc {
-		p.backToMain()
-	} else if event.Key() == tcell.KeyEnter {
-		p.app.main.ResizeItem(p, 0, 0)
-		p.TextArea.SetInputCapture(nil)
-		p.app.SetFocus(p.app.main)
-
-		if text == ":q" {
-			p.app.Stop()
+	p.app.keybordHandlers["Enter"] = p.execute
+	p.app.keybordHandlers["Esc"] = p.app.deactivatePrompt
+	p.app.keybordHandlers["Backspace2"] = func(ek *tcell.EventKey) *tcell.EventKey {
+		if p.GetText() == ":" {
+			return p.app.deactivatePrompt(ek)
 		}
-
-		cmd, _ := strings.CutPrefix(text, ":")
-		p.app.execCommand(cmd)
+		return ek
 	}
-	return event
 }
 
-func (p *Prompt) backToMain() {
-	p.app.main.ResizeItem(p, 0, 0)
-	p.TextArea.SetInputCapture(nil)
-	p.app.SetFocus(p.app.main)
+func (p *Prompt) execute(_ *tcell.EventKey) *tcell.EventKey {
+	text := p.GetText()
+	p.app.deactivatePrompt(nil)
+
+	if text == ":q" {
+		p.app.Stop()
+	}
+
+	cmd, _ := strings.CutPrefix(text, ":")
+	p.app.execCommand(cmd)
+	return nil
 }
