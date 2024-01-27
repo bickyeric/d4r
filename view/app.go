@@ -64,7 +64,6 @@ func (a *App) init() {
 		if a.pages.GetPageCount() < 1 {
 			content := NewContainer(a.docker)
 			content.init()
-			content.bindKeys()
 			a.pages.AddPage("Container", content, true, true)
 		}
 		a.main.SetInputCapture(a.keyboardHandler)
