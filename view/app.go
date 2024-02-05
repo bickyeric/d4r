@@ -10,12 +10,6 @@ import (
 	"github.com/rivo/tview"
 )
 
-type Page interface {
-	Title() (name string, count int)
-	Headers() []string
-	SetTable(t *tview.Table)
-}
-
 type App struct {
 	*tview.Application
 	docker *client.Client
@@ -59,10 +53,8 @@ func (a *App) init() {
 		AddItem(a.logger, 10, 1, false)
 
 	a.main.SetFocusFunc(func() {
-		a.logger.Println(a.pages.GetPageCount())
-		a.resetKeys()
 		if a.pages.GetPageCount() < 1 {
-			content := NewContainer(a.docker)
+			content := NewContainer(a)
 			content.init()
 			a.pages.AddPage("Container", content, true, true)
 		}
@@ -75,6 +67,14 @@ func (a *App) init() {
 
 func (a *App) bindKeys() {
 	a.keybordHandlers[":"] = a.activatePrompt
+	a.keybordHandlers["?"] = a.showKeyHelp
+	a.keybordHandlers["Esc"] = func(ek *tcell.EventKey) *tcell.EventKey {
+		if a.pages.GetPageCount() > 1 {
+			name, _ := a.pages.GetFrontPage()
+			a.pages.RemovePage(name)
+		}
+		return nil
+	}
 }
 
 func (a *App) clearKeys() {
@@ -100,6 +100,32 @@ func (a *App) deactivatePrompt(_ *tcell.EventKey) *tcell.EventKey {
 	return nil
 }
 
+func (a *App) showKeyHelp(_ *tcell.EventKey) *tcell.EventKey {
+	modal := func(p tview.Primitive, width, height int) tview.Primitive {
+		flex := tview.NewFlex().
+			AddItem(nil, 0, 1, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(nil, 0, 1, false).
+				AddItem(p, height, 1, true).
+				AddItem(nil, 0, 1, false), width, 1, true).
+			AddItem(nil, 0, 1, false)
+		return flex
+	}
+
+	textArea := tview.NewTextView()
+	textArea.SetBorder(true).
+		SetTitle(" Help ")
+
+	w := textArea.BatchWriter()
+	for k, _ := range a.keybordHandlers {
+		fmt.Fprintln(w, k)
+	}
+	w.Close()
+
+	a.pages.AddPage("modal", modal(textArea, 40, 10), true, true)
+	return nil
+}
+
 func (a *App) keyboardHandler(event *tcell.EventKey) *tcell.EventKey {
 	a.logger.Println("from flex", event.Name())
 
@@ -115,23 +141,14 @@ func (a *App) keyboardHandler(event *tcell.EventKey) *tcell.EventKey {
 }
 
 func (a *App) execCommand(cmd string) {
-	// TODO
 	var primitive tview.Primitive
-
-	if cmd == "image" {
-		img := NewImage(a.docker)
-		img.init()
-		primitive = img
-		a.pages.AddPage("Image", primitive, true, true)
-	} else if cmd == "ps" || cmd == "container" {
-		ps := NewContainer(a.docker)
+	if cmd == "ps" || cmd == "container" {
+		ps := NewContainer(a)
 		ps.init()
 		primitive = ps
 		a.pages.AddPage("Container", primitive, true, true)
 	} else {
-		modal := tview.NewModal()
-		modal.SetText(fmt.Sprintf("command %s tidak ditemukan", cmd))
-		a.pages.AddPage("Error", modal, true, true)
+		a.Logger().Printf("command %s tidak ditemukan\n", cmd)
 	}
 }
 

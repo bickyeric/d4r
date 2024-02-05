@@ -6,26 +6,37 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type Container struct {
 	*tview.Table
-	client  *client.Client
+	app     *App
 	content []types.Container
+	viewAll bool
 }
 
-func NewContainer(cli *client.Client) *Container {
+func NewContainer(app *App) *Container {
 	return &Container{
-		Table:  tview.NewTable(),
-		client: cli,
+		Table: tview.NewTable(),
+		app:   app,
 	}
 }
 
 func (c *Container) init() {
-	containers, err := c.client.ContainerList(context.Background(), types.ContainerListOptions{
-		All: true,
+	c.reloadData()
+	c.SetSelectable(true, false)
+	c.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Container", c.GetRowCount()))
+
+	c.bindKeys()
+}
+
+func (c *Container) reloadData() {
+	c.Clear()
+
+	containers, err := c.app.docker.ContainerList(context.Background(), types.ContainerListOptions{
+		All: c.viewAll,
 	})
 	if err != nil {
 		panic(err)
@@ -45,6 +56,28 @@ func (c *Container) init() {
 		c.SetCell(index+1, 4, tview.NewTableCell(fmt.Sprint(time.Unix(container.Created, 0))))
 		c.SetCell(index+1, 5, tview.NewTableCell(fmt.Sprint(container.Ports)))
 	}
-	c.SetSelectable(true, false)
-	c.SetBorder(true).SetTitle(fmt.Sprintf(" %s [%d] ", "Container", c.GetRowCount()))
+}
+
+func (c *Container) bindKeys() {
+	c.app.resetKeys()
+
+	c.app.keybordHandlers["a"] = c.toggleViewAll
+	c.app.keybordHandlers["d"] = c.delete
+}
+
+func (c *Container) toggleViewAll(ek *tcell.EventKey) *tcell.EventKey {
+	c.viewAll = !c.viewAll
+	c.reloadData()
+	return nil
+}
+
+func (c *Container) delete(ek *tcell.EventKey) *tcell.EventKey {
+	selectedRow, _ := c.Table.GetSelection()
+	selectedContainer := c.content[selectedRow-1]
+	err := c.app.docker.ContainerRemove(context.Background(), selectedContainer.ID, types.ContainerRemoveOptions{})
+	if err != nil {
+		c.app.logger.Println(err)
+	}
+	c.reloadData()
+	return nil
 }
