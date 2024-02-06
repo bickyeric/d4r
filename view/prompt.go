@@ -3,7 +3,6 @@ package view
 import (
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -32,19 +31,13 @@ func (p *Prompt) start() {
 func (p *Prompt) bindKeys() {
 	p.app.clearKeys()
 
-	p.app.keybordHandlers["Enter"] = p.execute
-	p.app.keybordHandlers["Esc"] = p.app.deactivatePrompt
-	p.app.keybordHandlers["Backspace2"] = func(ek *tcell.EventKey) *tcell.EventKey {
-		if p.GetText() == ":" {
-			return p.app.deactivatePrompt(ek)
-		}
-		return ek
-	}
+	p.app.keybordHandlers["Enter"] = NewAction("Execute", p.execute)
+	p.app.keybordHandlers["Esc"] = NewAction("Deactivate Prompt", p.app.deactivatePrompt)
 }
 
-func (p *Prompt) execute(_ *tcell.EventKey) *tcell.EventKey {
+func (p *Prompt) execute() error {
 	text := p.GetText()
-	p.app.deactivatePrompt(nil)
+	p.app.deactivatePrompt()
 
 	if text == ":q" {
 		p.app.Stop()

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -61,17 +60,17 @@ func (c *Container) reloadData() {
 func (c *Container) bindKeys() {
 	c.app.resetKeys()
 
-	c.app.keybordHandlers["a"] = c.toggleViewAll
-	c.app.keybordHandlers["d"] = c.delete
+	c.app.keybordHandlers["a"] = NewAction("View All", c.toggleViewAll)
+	c.app.keybordHandlers["d"] = NewAction("Delete Container", c.delete)
 }
 
-func (c *Container) toggleViewAll(ek *tcell.EventKey) *tcell.EventKey {
+func (c *Container) toggleViewAll() error {
 	c.viewAll = !c.viewAll
 	c.reloadData()
 	return nil
 }
 
-func (c *Container) delete(ek *tcell.EventKey) *tcell.EventKey {
+func (c *Container) delete() error {
 	selectedRow, _ := c.Table.GetSelection()
 	selectedContainer := c.content[selectedRow-1]
 	err := c.app.docker.ContainerRemove(context.Background(), selectedContainer.ID, types.ContainerRemoveOptions{})

@@ -20,7 +20,7 @@ type App struct {
 
 	main *tview.Flex
 
-	keybordHandlers map[string]func(*tcell.EventKey) *tcell.EventKey
+	keybordHandlers map[string]Action
 }
 
 func NewApp() *App {
@@ -34,7 +34,7 @@ func NewApp() *App {
 		docker:          cli,
 		pages:           tview.NewPages(),
 		logger:          NewDebugger(),
-		keybordHandlers: make(map[string]func(*tcell.EventKey) *tcell.EventKey),
+		keybordHandlers: make(map[string]Action),
 	}
 
 	app.init()
@@ -66,15 +66,15 @@ func (a *App) init() {
 }
 
 func (a *App) bindKeys() {
-	a.keybordHandlers[":"] = a.activatePrompt
-	a.keybordHandlers["?"] = a.showKeyHelp
-	a.keybordHandlers["Esc"] = func(ek *tcell.EventKey) *tcell.EventKey {
+	a.keybordHandlers[":"] = NewAction("Active Prompt", a.activatePrompt)
+	a.keybordHandlers["?"] = NewAction("Show Help", a.showKeyHelp)
+	a.keybordHandlers["Esc"] = NewAction("Back", func() error {
 		if a.pages.GetPageCount() > 1 {
 			name, _ := a.pages.GetFrontPage()
 			a.pages.RemovePage(name)
 		}
 		return nil
-	}
+	})
 }
 
 func (a *App) clearKeys() {
@@ -88,19 +88,19 @@ func (a *App) resetKeys() {
 	a.bindKeys()
 }
 
-func (a *App) activatePrompt(_ *tcell.EventKey) *tcell.EventKey {
+func (a *App) activatePrompt() error {
 	a.main.ResizeItem(a.prompt, 3, 1)
 	a.Application.SetFocus(a.prompt)
 	return nil
 }
 
-func (a *App) deactivatePrompt(_ *tcell.EventKey) *tcell.EventKey {
+func (a *App) deactivatePrompt() error {
 	a.main.ResizeItem(a.prompt, 0, 0)
-	a.SetFocus(a.main)
+	a.SetFocus(a.pages)
 	return nil
 }
 
-func (a *App) showKeyHelp(_ *tcell.EventKey) *tcell.EventKey {
+func (a *App) showKeyHelp() error {
 	modal := func(p tview.Primitive, width, height int) tview.Primitive {
 		flex := tview.NewFlex().
 			AddItem(nil, 0, 1, false).
@@ -117,8 +117,8 @@ func (a *App) showKeyHelp(_ *tcell.EventKey) *tcell.EventKey {
 		SetTitle(" Help ")
 
 	w := textArea.BatchWriter()
-	for k, _ := range a.keybordHandlers {
-		fmt.Fprintln(w, k)
+	for k, a := range a.keybordHandlers {
+		fmt.Fprintln(w, k, a.name)
 	}
 	w.Close()
 
@@ -129,12 +129,14 @@ func (a *App) showKeyHelp(_ *tcell.EventKey) *tcell.EventKey {
 func (a *App) keyboardHandler(event *tcell.EventKey) *tcell.EventKey {
 	a.logger.Println("from flex", event.Name())
 
-	if fun, ok := a.keybordHandlers[string(event.Rune())]; ok {
-		return fun(event)
+	if action, ok := a.keybordHandlers[string(event.Rune())]; ok {
+		action.handler()
+		return nil
 	}
 
-	if fun, ok := a.keybordHandlers[event.Name()]; ok {
-		return fun(event)
+	if action, ok := a.keybordHandlers[event.Name()]; ok {
+		action.handler()
+		return nil
 	}
 
 	return event
