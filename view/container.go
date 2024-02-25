@@ -82,6 +82,7 @@ func (c *Container) bindKeys() {
 	c.app.keybordHandlers["a"] = NewAction("View All", c.toggleViewAll)
 	c.app.keybordHandlers["d"] = NewAction("Delete Container", c.delete)
 	c.app.keybordHandlers["k"] = NewAction("Kill Container", c.kill)
+	c.app.keybordHandlers["s"] = NewAction("Start Container", c.start)
 }
 
 func (c *Container) toggleViewAll() error {
@@ -107,6 +108,20 @@ func (c *Container) kill() error {
 
 	go func(container types.Container) {
 		err := c.app.docker.ContainerKill(context.Background(), container.ID, "")
+		if err != nil {
+			c.app.logger.Println(err)
+		}
+	}(selectedContainer)
+
+	return nil
+}
+
+func (c *Container) start() error {
+	selectedRow, _ := c.Table.GetSelection()
+	selectedContainer := c.content[selectedRow-1]
+
+	go func(container types.Container) {
+		err := c.app.docker.ContainerStart(context.Background(), container.ID, types.ContainerStartOptions{})
 		if err != nil {
 			c.app.logger.Println(err)
 		}
