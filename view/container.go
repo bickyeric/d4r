@@ -60,9 +60,7 @@ func (c *Container) reloadData() {
 			c.SetCell(index+1, 3, tview.NewTableCell(strconv.Quote(container.Command)))
 		}
 
-		createdAt := time.Unix(container.Created, 0)
-		createdDuration := time.Since(createdAt).Round(time.Second)
-		c.SetCell(index+1, 4, tview.NewTableCell(createdDuration.String()+" ago"))
+		c.SetCell(index+1, 4, tview.NewTableCell(c.formatAge(container.Created)))
 
 		c.SetCell(index+1, 5, tview.NewTableCell(container.Status))
 
@@ -128,6 +126,26 @@ func (c *Container) start() error {
 	}(selectedContainer)
 
 	return nil
+}
+
+func (c *Container) formatAge(createdAt int64) string {
+	monthInHours := float64(24 * 30)
+	weekInHours := float64(24 * 7)
+	dayInHours := float64(24)
+
+	createdTime := time.Unix(createdAt, 0)
+	createdDuration := time.Since(createdTime)
+	if createdDuration.Hours() > monthInHours {
+		return fmt.Sprintf("%2.f months ago", createdDuration.Hours()/monthInHours)
+	} else if createdDuration.Hours() > weekInHours {
+		return fmt.Sprintf("%2.f weeks ago", createdDuration.Hours()/weekInHours)
+	} else if createdDuration.Hours() > dayInHours {
+		return fmt.Sprintf("%2.f days ago", createdDuration.Hours()/dayInHours)
+	} else if createdDuration.Hours() > 0 {
+		return fmt.Sprintf("%2.f hours ago", createdDuration.Hours())
+	}
+
+	return createdDuration.String() + " ago"
 }
 
 func (c *Container) formatPort(p types.Port) string {
