@@ -127,8 +127,6 @@ func (a *App) showKeyHelp() error {
 }
 
 func (a *App) keyboardHandler(event *tcell.EventKey) *tcell.EventKey {
-	a.logger.Println("from flex", event.Name())
-
 	if action, ok := a.keybordHandlers[string(event.Rune())]; ok {
 		action.handler()
 		return nil
@@ -149,6 +147,11 @@ func (a *App) execCommand(cmd string) {
 		ps.init()
 		primitive = ps
 		a.pages.AddPage("Container", primitive, true, true)
+	} else if cmd == "image" {
+		image := NewImage(a)
+		image.init()
+		primitive = image
+		a.pages.AddPage("Image", primitive, true, true)
 	} else {
 		a.Logger().Printf("command %s tidak ditemukan\n", cmd)
 	}

@@ -30,7 +30,9 @@ func (c *Container) init() {
 	c.SetSelectable(true, false)
 	c.SetBorder(true)
 
-	c.bindKeys()
+	c.Table.SetFocusFunc(func() {
+		c.bindKeys()
+	})
 }
 
 func (c *Container) reloadData() {
@@ -78,7 +80,7 @@ func (c *Container) bindKeys() {
 	c.app.resetKeys()
 
 	c.app.keybordHandlers["a"] = NewAction("View All", c.toggleViewAll)
-	c.app.keybordHandlers["d"] = NewAction("Delete Container", c.delete)
+	c.app.keybordHandlers["D"] = NewAction("Delete Container", c.delete)
 	c.app.keybordHandlers["k"] = NewAction("Kill Container", c.kill)
 	c.app.keybordHandlers["s"] = NewAction("Start Container", c.start)
 }
